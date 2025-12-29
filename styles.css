@@ -1,11 +1,32 @@
 @import url('https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap');
 
+/* Light theme (default) */
+:root {
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --link-color: #2185c5;
+    --link-hover-color: #74a6c5;
+    --toggle-bg: transparent;
+    --toggle-hover-bg: rgba(0, 0, 0, 0.08);
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --link-color: #6bb8e8;
+    --link-hover-color: #a3d4f5;
+    --toggle-hover-bg: rgba(255, 255, 255, 0.1);
+}
+
 body {
     font-family: "Work Sans", serif;
     font-optical-sizing: auto;
     font-weight: 400;
     font-style: normal;
-    color: #333333;
+    color: var(--text-color);
+    background-color: var(--bg-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 strong {
@@ -29,10 +50,69 @@ h2 {
 
 a {
     text-decoration: none;
-    color: #2185c5;
+    color: var(--link-color);
     font-weight: bold;
+    transition: color 0.2s ease;
 }
 
 a:hover {
-    color: #74a6c5;
+    color: var(--link-hover-color);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    background: var(--toggle-bg);
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-color);
+    transition: background-color 0.2s ease, color 0.3s ease;
+}
+
+.theme-toggle:hover {
+    background: var(--toggle-hover-bg);
+}
+
+.theme-toggle:focus {
+    outline: 2px solid var(--link-color);
+    outline-offset: 2px;
+}
+
+/* Icon visibility */
+.sun-icon,
+.moon-icon {
+    position: absolute;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Light mode: show moon icon (to switch to dark) */
+:root .sun-icon,
+[data-theme="light"] .sun-icon {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.8);
+}
+
+:root .moon-icon,
+[data-theme="light"] .moon-icon {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+}
+
+/* Dark mode: show sun icon (to switch to light) */
+[data-theme="dark"] .sun-icon {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+}
+
+[data-theme="dark"] .moon-icon {
+    opacity: 0;
+    transform: rotate(90deg) scale(0.8);
 }
