@@ -1,0 +1,32 @@
+{{/*
+  Render hook: layouts/_default/_markup/render-blockquote.html
+
+  Converts GitHub-style callouts:
+    > [!NOTE]  > [!TIP]  > [!IMPORTANT]  > [!WARNING]  > [!CAUTION]
+
+  Hugo 0.132+ natively recognises GitHub-style alerts: it strips the
+  [!TYPE] marker from .Text and exposes the type via .AlertType
+  (lowercase). We upper-case it to look up the icon map.
+*/}}
+
+{{- $calloutType := .AlertType | upper -}}
+
+{{- $icons := dict
+  "NOTE"      `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`
+  "TIP"       `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z"/><line x1="9" y1="21" x2="15" y2="21"/><line x1="10" y1="18" x2="14" y2="18"/></svg>`
+  "IMPORTANT" `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`
+  "WARNING"   `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`
+  "CAUTION"   `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+-}}
+
+{{- if $calloutType -}}
+  <div class="callout callout-{{ lower $calloutType }}">
+    <div class="callout-title">
+      {{ index $icons $calloutType | safeHTML }}
+      <span>{{ title (lower $calloutType) }}</span>
+    </div>
+    <div class="callout-body">{{ .Text | safeHTML }}</div>
+  </div>
+{{- else -}}
+  <blockquote>{{ .Text | safeHTML }}</blockquote>
+{{- end -}}

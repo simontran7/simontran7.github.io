@@ -1,0 +1,10 @@
+{{ define "main" }}
+<div class="container page">
+  <main class="prose">
+    <a href="{{ .Parent.RelPermalink }}" class="back-link">← {{ .Parent.Title }}</a>
+    <h1>{{ .Title }}</h1>
+    {{ with .Date }}<p class="note-date">{{ .Format "January 2, 2006" }}</p>{{ end }}
+    {{ .Content }}
+  </main>
+</div>
+{{ end }}
