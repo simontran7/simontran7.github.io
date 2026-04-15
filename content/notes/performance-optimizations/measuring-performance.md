@@ -1,6 +1,6 @@
-# performance optimizations
+# Measuring Performance
 
-## estimations
+## Estimations
 
 1. Estimate how many low-level operations of various kinds are required, e.g., number of disk seeks, number of network round-trips, bytes transmitted etc.
 2. Multiply each kind of expensive operation with its rough cost.
@@ -19,13 +19,13 @@
 
 3. Add the results together.
 
-## profiling
+## Profiling
 
 TO DO
 
-## benchmarking
+## Benchmarking
 
-### micro-benchmarking template
+### Micro-benchmarking
 
 ```rust
 use std::hint::black_box;
@@ -52,7 +52,7 @@ fn benchmark_thing() {
 
 Run `cargo test --release -- benchmark_thing --no-capture`
 
-### macro-benchmarking
+### Macro-benchmarking
 
 ```shell
 hyperfine --warmup 3 '<program name>' # add this if you want to compare program '<program 2 name>'

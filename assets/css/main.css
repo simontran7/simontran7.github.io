@@ -138,7 +138,7 @@ strong { font-weight: 600; }
 .prose code {
   font-family: "JetBrains Mono", monospace;
   font-optical-sizing: auto;
-  font-size: 0.875em;
+  font-size: 0.8em;
   background: var(--code-bg);
   border-radius: 4px;
   padding: 0.15em 0.4em;

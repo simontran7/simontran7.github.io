@@ -1,6 +1,6 @@
-# SIMD
+# CPU Optimizations
 
-## Background
+## SIMD
 
 **Single Instruction, Multiple Data (SIMD)** is a form of data parallelism in which one instruction operates on multiple values simultaneously. This is achieved using **vector registers**, which hold multiple elements at once. Each slot within a vector register is called a **lane**, and operations on vector registers are called **vector operations**. On the other hand, **scalar operations** act on a single value at a time.
 
@@ -20,24 +20,19 @@
 
 <img src="../images/simd-extension-evolution.jpeg" width="500">
 
-> [!note]
+> [!NOTE]
 > Each generation of x86-64 SIMD extensions builds upon the previous one. When using narrower vector operations from older instruction sets, they operate on the lower portion of the wider registers introduced in newer extensions.
 
 > [!NOTE]
 > To check what SIMD instruction set extensions your CPU supports, run `lscpu`, and look at the `Flags` output.
 
-## Rust API
+### Rust API
 
-### Portable SIMD
-
-[`std::simd` module](https://doc.rust-lang.org/std/simd/index.html)
+- [`std::simd` module](https://doc.rust-lang.org/std/simd/index.html)
+- [`std::arch` module](https://doc.rust-lang.org/std/arch/index.html) and [Intel Intrinsics Guide](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html)
 
 > [!WARNING]
 > Portable SIMD in Rust requires the Rust nightly compiler. To install it, run `rustup toolchain install nightly`, then temporarily set it to the default compiler via `rustup default nightly`
-
-### Vendor SIMD Intrinsics
-
-[`std::arch` module](https://doc.rust-lang.org/std/arch/index.html) and [Intel Intrinsics Guide](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html)
 
 > [!NOTE]
 > When writing non-portable SIMD code, consider using [Dynamic CPU Feature Detection](https://doc.rust-lang.org/std/arch/index.html#dynamic-cpu-feature-detection) since this approach allows:
@@ -47,13 +42,12 @@
 >
 > You can also use static CPU feature detection (via `RUSTFLAGS`), which bakes specific SIMD instruction set extensions into the entire binary, but is discouraged as this will crash on CPUs that don't support those features.
 
-## Example
-
-### Description
+### Example
 
 Given a slice of bytes `haystack` and a byte `needle`, find the first occurrence of `needle` in `haystack`.
 
-### Solution
+<details>
+<summary>Solution</summary>
 
 ```rust
 #![feature(portable_simd)]
@@ -114,3 +108,7 @@ pub fn find(haystack: &[u8], needle: u8) -> Option<usize> {
         .map(|pos| offset + pos)
 }
 ```
+
+</details>
+
+## Branchless Programming
