@@ -6,7 +6,7 @@ title: "Notes"
 
 - [C](https://beej.us/guide/bgc/html/), [Rust](https://doc.rust-lang.org/rust-by-example/index.html)
 - [Command-line Environment](./command-line-environment.pdf)
-- [Version Control](https://beej.us/guide/bggit/html/)
+- [Version Control](./tools/git)
 
 ## Data Structures and Algorithms
 
