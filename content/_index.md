@@ -4,7 +4,7 @@ title: "Simon Tran"
 
 # Simon Tran
 
-Hi! I'm a recent computer science graduate from [McGill University](https://www.mcgill.ca) interested in [systems programming](https://youtu.be/4aLy6qjhHeo?t=88). Particularly, I really enjoy writing collections, compilers, and working with Linux syscalls.
+Hi! I'm a recent computer science graduate from [McGill University](https://www.mcgill.ca) interested in [systems programming](https://youtu.be/4aLy6qjhHeo?t=88). Particularly, I really enjoy writing collections, compilers, and working with [Linux syscalls](https://man7.org/linux/man-pages/man2/syscalls.2.html).
 
 Outside of programming, I also love to:
 
