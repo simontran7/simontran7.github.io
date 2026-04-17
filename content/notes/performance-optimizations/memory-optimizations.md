@@ -1,154 +1,100 @@
 
 # Memory Optimizations
 
-## Handles
+## Struct Packing
 
-**Handles** are bit fields used as indirection.
+**Alignment** refers to the set of valid starting addresses for objects of a given type. A type's **natural alignment** is the default alignment, determined by the platform, that enables efficient memory access (i.e. single-instruction loads & stores). Without natural alignment, a value might be placed such that it straddles machine-word boundaries. As a result, the CPU may need to perform multiple memory accesses and combine the pieces in registers, which increases the cost of reading or writing the value. In Rust, you can check a type's alignment using `std::mem::align_of`.
 
-They have notable benefits over raw pointers:
-1. Stable: Handles remains valid even if the underlying resource can be moved, swapped, or reallocated, while a pointer would be invalidated in the same scenario.
-2. Compact Representation: Handles can be smaller than native pointers. Notably, if you know your memory pool is less than 4 GiB, a `u32` handle is enough, thereby saving memory.
-3. Can Cross Abstraction Boundaries: Pointers are tied to one process, and therefore, one address space. Handles can be shared across threads, modules, or even across processes. The receiver only needs to know the handle format, not the actual memory layout.
-4. Control: On top of storing the index, handles can also encode metadata (e.g., generation counter, the underlying array within an SoA, etc.).
+For composite data types, notably structs or unions, the compiler often inserts extra unused bytes, called **padding**, to ensure each field begins at an address satisfying its own alignment and/or the alignment of the entire data structure. The compiler inserts **internal padding** before a field whenever the current struct offset isn't aligned to the natural alignment requirement of the next field (i.e., $(\text{current offset} \mod \text{field alignment}) \neq 0$). The compiler also inserts **trailing padding** at the end to satisfy overall alignment requirements.
 
-<details>
-<summary>General Implementation</summary>
+The **data structure size** is the total number of bytes the data structure occupies in memory, including both actual data and any inserted padding. You can retrieve this size using `std::mem::size_of`. We also say a type is **self-aligned** to describe that its alignment equals its size.
+
+The following table lists common types along with their natural alignment and size (in bytes) on a x86-64 system:
+
+| Type          | Natural Alignment (bytes)                    | Size (bytes)                                                                                                                                                  |
+| ------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Primitive     | Same as size                                 | `bool` = 1, `u8` / `i8` = 1, `u16` / `i16` = 2, `char` = 4, `f32` / `i32` / `u32` = 4, `f64` / `i64` / `u64` = 8, `u128` / `i128` = 16, `usize` / `isize` = 8 |
+| Array / Slice | According to its element's natural alignment | $\text{element size} \times \text{number of elements}$                                                                                                        |
+| Pointer       | 8                                            | 8                                                                                                                                                             |
+| Structure     | Largest natural alignment among its fields   | $\text{field sizes} + \text{internal padding} + \text{trailing padding}$                                                                                      |
+
+> [!NOTE]
+> In C, the order of fields of a struct is preserved exactly as written, while in Rust, the compiler _may_ reorder fields to reduce padding unless you use the `#[repr(C)]` attribute.
+
+### Field Re-Ordering
+
+A common technique to pack a struct is re-ordering fields by decreasing natural alignment, since a field with larger alignment guarantees that any following smaller-alignment field will already be properly aligned:
 
 ```rust
-use std::marker::PhantomData;
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct Handle<T> {
-    index: u32,
-    _marker: PhantomData<T>,
+#[repr(C)]
+struct DefaultStruct {
+    c: u8,        // 1 byte
+                  // 7 bytes of field padding
+    p: *const u8, // 8 bytes
+    x: i16,       // 2 bytes
+                  // 6 bytes of trailing padding
 }
+                  // total size: 24 bytes
+```
 
-impl<T> Copy for Handle<T> {}
-impl<T> Clone for Handle<T> {
-    fn clone(&self) -> Self { *self }
+```rust
+#[repr(C)]
+struct PackedStruct {
+    p: *const u8, // 8 bytes
+    x: i16,       // 2 bytes
+    c: u8,        // 1 byte
+                  // 5 bytes of trailing padding
 }
+                  // total size: 16 bytes
+```
 
-impl<T> Handle<T> {
-    fn new(index: usize) -> Self {
-        assert!(index <= u32::MAX as usize, "array overflow");
-        Self { index: index as u32, _marker: PhantomData }
-    }
+Another common trick is to group fields of the same alignment and same size together (on top of applying the trick above):
 
-    fn index(self) -> usize {
-        self.index as usize
-    }
+```rust
+#[repr(C)]
+struct DefaultStruct {
+    a: i32,   // 4 bytes
+    c1: u8,   // 1 byte
+              // 3 bytes of field padding
+    b: i32,   // 4 bytes
+    c2: u8,   // 1 byte
+              // 1 byte of field padding
+    s1: i16,  // 2 bytes
+    s2: i16,  // 2 bytes
+              // 2 bytes of trailing padding
+}
+              // total size: 20 bytes
+```
+
+```rust
+#[repr(C)]
+struct PackedStruct {
+    a: i32,   // 4 bytes
+    b: i32,   // 4 bytes
+    s1: i16,  // 2 bytes
+    s2: i16,  // 2 bytes
+    c1: u8,   // 1 byte
+    c2: u8,   // 1 byte
+              // 2 bytes of trailing padding
+}
+              // total size: 16 bytes
+```
+
+### Compiler Struct Packing
+
+In Rust, you can add an attribute to force the compiler to lay out struct fields back-to-back with no padding, thereby breaking natural alignment:
+
+```rust
+#[repr(packed)]
+struct PackedStruct {
+    a: u8,
+    b: i32,
+    c: f64,
 }
 ```
 
-</details>
-
-## Struct of Arrays
-
-**Struct of Arrays (SoA)** is a data layout where you store each field in its own contiguous array (can be as the struct's field, a global variable, or a local variable), which provides:
-- Low memory usage (there's only padding for array fields, while in a AoS layout, there's padding for every element in the array)
-- Good memory bandwidth utilization for batched code (i.e. if you have a loop that process several objects that only accesses a few of the fields, then the SoA layout reduces the amount of data that needs to be loaded).
-
-```rust
-struct MySoA {
-    field1: Vec<Type1>,
-    field2: Vec<Type2>,
-    // ...
-    fieldN: Vec<TypeN>,
-}
-```
-
-It's inverse is the more common data layout, called **Array of Structs (AoS)**.
-
-### Example
-
-To achieve polymorphism, we can use the SoA and/or the AoS layout.
-
-<details>
-
-```rust
-// AoS with Enum-based Polymorphism
-struct Shape {
-    x: f32,
-    y: f32,
-    kind: ShapeKind,
-}
-
-enum ShapeKind {
-    Circle { radius: f32 },
-    Rectangle { width: f32, height: f32 },
-    Triangle { base: f32, height: f32 },
-}
-
-// AoS with Subclass-based (via Composition) Polymorphism
-struct Shape {
-    tag: Tag,
-    x: f32,
-    y: f32,
-}
-
-enum Tag {
-    Circle,
-    Rectangle,
-    Triangle,
-}
-
-struct Circle {
-    base: Shape,
-    radius: f32,
-}
-
-struct Rectangle {
-    base: Shape,
-    width: f32,
-    height: f32,
-}
-
-struct Triangle {
-    base: Shape,
-    base_len: f32,
-    height: f32,
-}
-
-// Hybrid AoS and SoA Variant-Encoding-based Polymorphism
-struct Shape {
-    tag: Tag,
-    x: f32,
-    y: f32,
-    extra_payload_idx: u32,
-}
-
-enum Tag {
-    Circle,
-    Rectangle,
-    Triangle,
-}
-
-struct CirclePayload {
-    radius: f32,
-}
-struct RectanglePayload {
-    width: f32,
-    height: f32,
-}
-struct TrianglePayload {
-    base: f32,
-    height: f32,
-}
-
-// Layout at runtime:
-//  - One Vec<Shape>
-//  - Additional Vec<CirclePayload>, Vec<RectanglePayload>, and/or Vec<TrianglePayload>
-//    indexed by Shape.extra_payload_idx as required
-
-// Example of accessing the extra data:
-match shapes[i].tag {
-    Tag::Circle      => circle_payloads[shapes[i].extra_payload_idx].radius,
-    Tag::Rectangle   => rectangle_payloads[shapes[i].extra_payload_idx],
-    Tag::Triangle    => triangle_payloads[shapes[i].extra_payload_idx],
-}
-```
-
-</details>
+> [!NOTE]
+> Accessing unaligned fields in packed structs *may* lead to significantly slower code or even cause undefined behaviour on some platforms which can't handle unaligned access at all. However, others, notably Daniel Lemire, argue to [*not* worry about alignment](https://lemire.me/blog/2025/07/14/dot-product-on-misaligned-data/#:~:text=you%20should%20generally%20no%20worry%20about%20alignment%20when%20optimizing%20your%20code).
 
 ## Bit Packing
 
@@ -303,100 +249,154 @@ impl BitFlags {
 }
 ```
 
-## Struct Packing
+## Handles
 
-**Alignment** refers to the set of valid starting addresses for objects of a given type. A type's **natural alignment** is the default alignment, determined by the platform, that enables efficient memory access (i.e. single-instruction loads & stores). Without natural alignment, a value might be placed such that it straddles machine-word boundaries. As a result, the CPU may need to perform multiple memory accesses and combine the pieces in registers, which increases the cost of reading or writing the value. In Rust, you can check a type's alignment using `std::mem::align_of`.
+**Handles** are bit fields used as indirection.
 
-For composite data types, notably structs or unions, the compiler often inserts extra unused bytes, called **padding**, to ensure each field begins at an address satisfying its own alignment and/or the alignment of the entire data structure. The compiler inserts **internal padding** before a field whenever the current struct offset isn't aligned to the natural alignment requirement of the next field (i.e., $(\text{current offset} \mod \text{field alignment}) \neq 0$). The compiler also inserts **trailing padding** at the end to satisfy overall alignment requirements.
+They have notable benefits over raw pointers:
+- Stable: Handles remains valid even if the underlying resource can be moved, swapped, or reallocated, while a pointer would be invalidated in the same scenario.
+- Compact Representation: Handles can be smaller than native pointers. Notably, if you know your memory pool is less than 4 GiB, a `u32` handle is enough, thereby saving memory.
+- Can Cross Abstraction Boundaries: Pointers are tied to one process, and therefore, one address space. Handles can be shared across threads, shared libraries (`.so` / `.dll` in C/C++), or even across processes. The receiver only needs to know the handle format, not the actual memory layout.
+- Control: On top of storing the index, handles can also encode metadata (e.g., generation counter, the underlying array within an SoA, etc.).
 
-The **data structure size** is the total number of bytes the data structure occupies in memory, including both actual data and any inserted padding. You can retrieve this size using `std::mem::size_of`. We also say a type is **self-aligned** to describe that its alignment equals its size.
-
-The following table lists common types along with their natural alignment and size (in bytes) on a x86-64 system:
-
-| Type          | Natural Alignment (bytes)                    | Size (bytes)                                                                                                                                                  |
-| ------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Primitive     | Same as size                                 | `bool` = 1, `u8` / `i8` = 1, `u16` / `i16` = 2, `char` = 4, `f32` / `i32` / `u32` = 4, `f64` / `i64` / `u64` = 8, `u128` / `i128` = 16, `usize` / `isize` = 8 |
-| Array / Slice | According to its element's natural alignment | $\text{element size} \times \text{number of elements}$                                                                                                        |
-| Pointer       | 8                                            | 8                                                                                                                                                             |
-| Structure     | Largest natural alignment among its fields   | $\text{field sizes} + \text{internal padding} + \text{trailing padding}$                                                                                      |
-
-> [!NOTE]
-> In C, the order of fields of a struct is preserved exactly as written, while in Rust, the compiler _may_ reorder fields to reduce padding unless you use the `#[repr(C)]` attribute.
-
-### Field Re-Ordering
-
-A common technique to pack a struct is re-ordering fields by decreasing natural alignment, since a field with larger alignment guarantees that any following smaller-alignment field will already be properly aligned:
+<details>
+<summary>General Implementation</summary>
 
 ```rust
-#[repr(C)]
-struct DefaultStruct {
-    c: u8,        // 1 byte
-                  // 7 bytes of field padding
-    p: *const u8, // 8 bytes
-    x: i16,       // 2 bytes
-                  // 6 bytes of trailing padding
+use std::marker::PhantomData;
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct Handle<T> {
+    index: u32,
+    _marker: PhantomData<T>,
 }
-                  // total size: 24 bytes
-```
 
-```rust
-#[repr(C)]
-struct PackedStruct {
-    p: *const u8, // 8 bytes
-    x: i16,       // 2 bytes
-    c: u8,        // 1 byte
-                  // 5 bytes of trailing padding
+impl<T> Copy for Handle<T> {}
+impl<T> Clone for Handle<T> {
+    fn clone(&self) -> Self { *self }
 }
-                  // total size: 16 bytes
-```
 
-Another common trick is to group fields of the same alignment and same size together (on top of applying the trick above):
+impl<T> Handle<T> {
+    fn new(index: usize) -> Self {
+        assert!(index <= u32::MAX as usize, "array overflow");
+        Self { index: index as u32, _marker: PhantomData }
+    }
 
-```rust
-#[repr(C)]
-struct DefaultStruct {
-    a: i32,   // 4 bytes
-    c1: u8,   // 1 byte
-              // 3 bytes of field padding
-    b: i32,   // 4 bytes
-    c2: u8,   // 1 byte
-              // 1 byte of field padding
-    s1: i16,  // 2 bytes
-    s2: i16,  // 2 bytes
-              // 2 bytes of trailing padding
-}
-              // total size: 20 bytes
-```
-
-```rust
-#[repr(C)]
-struct PackedStruct {
-    a: i32,   // 4 bytes
-    b: i32,   // 4 bytes
-    s1: i16,  // 2 bytes
-    s2: i16,  // 2 bytes
-    c1: u8,   // 1 byte
-    c2: u8,   // 1 byte
-              // 2 bytes of trailing padding
-}
-              // total size: 16 bytes
-```
-
-### Compiler Struct Packing
-
-In Rust, you can add an attribute to force the compiler to lay out struct fields back-to-back with no padding, thereby breaking natural alignment:
-
-```rust
-#[repr(packed)]
-struct PackedStruct {
-    a: u8,
-    b: i32,
-    c: f64,
+    fn index(self) -> usize {
+        self.index as usize
+    }
 }
 ```
 
-> [!NOTE]
-> Accessing unaligned fields in packed structs *may* lead to significantly slower code or even cause undefined behaviour on some platforms which can't handle unaligned access at all. However, others, notably Daniel Lemire, argue to [*not* worry about alignment](https://lemire.me/blog/2025/07/14/dot-product-on-misaligned-data/#:~:text=you%20should%20generally%20no%20worry%20about%20alignment%20when%20optimizing%20your%20code).
+</details>
+
+## Struct of Arrays
+
+**Struct of Arrays (SoA)** is a data layout where you store each field in its own contiguous array (can be as the struct's field, a global variable, or a local variable), which provides:
+- Low memory usage (there's only padding for array fields, while in a AoS layout, there's padding for every element in the array)
+- Good memory bandwidth utilization for batched code (i.e. if you have a loop that process several objects that only accesses a few of the fields, then the SoA layout reduces the amount of data that needs to be loaded).
+
+```rust
+struct MySoA {
+    field1: Vec<Type1>,
+    field2: Vec<Type2>,
+    // ...
+    fieldN: Vec<TypeN>,
+}
+```
+
+It's inverse is the more common data layout, called **Array of Structs (AoS)**.
+
+### Example
+
+To achieve polymorphism, we can use the SoA and/or the AoS layout.
+
+<details>
+
+```rust
+// AoS with Enum-based Polymorphism
+struct Shape {
+    x: f32,
+    y: f32,
+    kind: ShapeKind,
+}
+
+enum ShapeKind {
+    Circle { radius: f32 },
+    Rectangle { width: f32, height: f32 },
+    Triangle { base: f32, height: f32 },
+}
+
+// AoS with Subclass-based (via Composition) Polymorphism
+struct Shape {
+    tag: Tag,
+    x: f32,
+    y: f32,
+}
+
+enum Tag {
+    Circle,
+    Rectangle,
+    Triangle,
+}
+
+struct Circle {
+    base: Shape,
+    radius: f32,
+}
+
+struct Rectangle {
+    base: Shape,
+    width: f32,
+    height: f32,
+}
+
+struct Triangle {
+    base: Shape,
+    base_len: f32,
+    height: f32,
+}
+
+// Hybrid AoS and SoA Variant-Encoding-based Polymorphism
+struct Shape {
+    tag: Tag,
+    x: f32,
+    y: f32,
+    extra_payload_idx: u32,
+}
+
+enum Tag {
+    Circle,
+    Rectangle,
+    Triangle,
+}
+
+struct CirclePayload {
+    radius: f32,
+}
+struct RectanglePayload {
+    width: f32,
+    height: f32,
+}
+struct TrianglePayload {
+    base: f32,
+    height: f32,
+}
+
+// Layout at runtime:
+//  - One Vec<Shape>
+//  - Additional Vec<CirclePayload>, Vec<RectanglePayload>, and/or Vec<TrianglePayload>
+//    indexed by Shape.extra_payload_idx as required
+
+// Example of accessing the extra data:
+match shapes[i].tag {
+    Tag::Circle      => circle_payloads[shapes[i].extra_payload_idx].radius,
+    Tag::Rectangle   => rectangle_payloads[shapes[i].extra_payload_idx],
+    Tag::Triangle    => triangle_payloads[shapes[i].extra_payload_idx],
+}
+```
+
+</details>
 
 ## Custom Memory Allocators
 

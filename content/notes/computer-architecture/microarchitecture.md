@@ -6,27 +6,28 @@
 
 ### Control Processing Unit (CPU)
 
-#### Processing Unit
+<img src="../images/cpu.png" width="200">
 
-The **processing unit (PU)** consists of three major subsections.
+#### Datapath Unit
 
-The first part is the **arithmetic/logic unit (ALU)**, which performs mathematical and logical operations on integers. It takes the data operands sitting in registers and performs the operation based on the opcode from the instruction. It then produces an integer result, as well as a **status flags**, which encodes information about the result of the operation just performed (e.g. whether the integer result is negative (negative flag), zero (zero flag), if there is a carry-out bit from the operation (carry flag), or if there is integer overflow (overflow flag), etc.). These status flags are sometimes used by subsequent instructions that choose an action based on a particular condition.
+The **datapath unit** is the portion of the processor that contains the hardware necessary to perform operations required by the processor.
 
-Similarly, the second part of the PU is the **floating-point unit (FPU)**, which performs arithmetic operations on floating-point values.
-
-The fourth part of the PU is called the **register file**, which is the set of a small, fast unit of storage each called a **register**, used to hold program data and program instructions that are being executed by the ALU. These registers can each hold one data word.
+It contains a few components:
+- **Arithmetic/logic unit (ALU)**: performs mathematical and logical operations on integers. It takes the data operands sitting in registers and performs the operation based on the opcode from the instruction. It then produces an integer result, as well as a **status flags**, which encodes information about the result of the operation just performed (e.g. whether the integer result is negative (negative flag), zero (zero flag), if there is a carry-out bit from the operation (carry flag), or if there is integer overflow (overflow flag), etc.). These status flags are sometimes used by subsequent instructions that choose an action based on a particular condition.
+- **Floating-point units (FPUs)**: similar as the ALU, but performs arithmetic operations on _floating-point_ values.
+- **Register file**: set of a small, fast unit of storage each called a **register**, used to hold program data and program instructions that are being executed by the ALU. These registers can each hold one data word.
+- **Program counter (PC)**: a special register used to store the memory address of the next instruction to execute.
 
 #### Control Unit
 
-The **control unit (CU)** drives the execution of program instructions by loading them from memory and feeding instruction operations and instruction operands through the processing unit.
+The **control unit (CU)** is the portion of the processor that tells the datapath what needs to be done. It describes the signals needed to ensure the elements of the datapath correctly execute an instruction.
 
-It also includes two special registers:
-- the **program counter (PC)** keeps the memory address of the next instruction to execute
-- the **instruction register (IR)** holds the current instruction being executed.
+Some of its notable components:
+- **Instruction register (IR)**: holds the current instruction being executed.
+- **Instruction decoder**: decodes the instruction in the instruction register, and generates the appropriate control signals.
 
-Together, the control and processing units form the **control processing unit (CPU)**, which is the part of the computer that executes program instructions on program data.
-
-The CPU also contains a **clock**, which is a hardware crystal oscillator that generates a **clock signal**, which is a continuous stream of electrical pulses that coordinates all processor activity. Each pulse, known as a **clock cycle**, acts like a heartbeat, synchronizing when the ALU performs an operation, when registers capture or update values, and when data is transferred across buses. Without the clock signal, the PU's components would have no reference for _when_ to act. The **clock speed** (or **clock rate**) is the frequency of these cycles, measured in hertz (typically gigahertz).
+> [!NOTE]
+> The **clock** is a separate physical component (a crystal oscillator) feeding into the entire CPU, which generates a **clock signal**: a continuous stream of electrical pulses that coordinates all processor activity. Each pulse, known as a **clock cycle**, acts like a heartbeat, synchronizing when the ALU performs an operation, when registers capture or update values, and when data is transferred across buses. Without the clock signal, the datapath's components would have no reference for _when_ to act. The **clock speed** (or **clock rate**) is the frequency of these cycles, measured in hertz (typically gigahertz).
 
 ### Memory Unit
 
@@ -100,12 +101,18 @@ Another way to measure performance is in terms of **Instructions Per Cycle (IPC)
 
 At a high level, instructions are typically made of bits which encode:
 - **Opcode**: specifies the operation (e.g., `ADD`, `LOAD`, `STORE`, `BEQ`, etc.).
-- **Operands**: indicate the data sources registers, immediates (constants encoded directly in the instruction), or memory addresses.
-- **Destination**: indicates the destination register for storing the result of the operation
+- **Operands**: indicate the data sources — registers, immediates (constants encoded directly in the instruction), or memory addresses.
+- **Destination**: indicates the destination register for storing the result of the operation (note: not all instructions have one, e.g., `STORE`, `CMP`, `BEQ`).
+- **Addressing Mode**: specifies *how* to interpret the operand (i.e., how to find the actual data). Common modes:
+  - **Immediate**: the operand *is* the data (e.g., `ADD R1, #5`, where 5 is the value itself)
+  - **Register**: the operand is a register holding the data (e.g., `ADD R1, R2`)
+  - **Direct**: the operand is a memory address, which indicates the CPU to go to that address to get the data
+  - **Indirect**: the operand points to an address that *contains* the real address (and therefore involves two memory lookups)
+  - **Base + Offset**: indicates the CPU to take a base register and add a constant offset to get the address — common in arrays and stack frames (e.g. `LOAD R1, 4(R2)`)
 
 ### Instruction Cycle
 
-Every single instruction follows a **fetch-decode-execute cycle** , which usually takes around 4 CPU cycles. This process starts with a program's first instruction, and is repeated until the program exits.
+Every single instruction follows a **fetch-decode-execute cycle**, which usually takes around 4 CPU cycles. This process starts with a program's first instruction, and is repeated until the program exits.
 
 #### Step 1: Fetch
 

@@ -38,8 +38,8 @@ For systems programmers, NUMA awareness matters primarily for performance optimi
 
 ## Distributed Memory Multiprocessor Systems
 
-**Distributed memory multiprocessor systems** are systems where each processor has private memory with no shared address space. Processors cannot directly read or write remote memory, so communication requires explicit message passing (e.g., MPI, gRPC).
+In **distributed memory multiprocessor systems**, each node has its own private memory and there is no shared address space. Processors cannot directly read or write each other's memory — all communication requires explicit message passing over a network (e.g., MPI).
 
-This architecture scales to thousands or millions of nodes, making it well-suited for embarrassingly parallel workloads with high computation-to-communication ratios. However, network communication sits far below RAM in the memory hierarchy, making it poorly suited for tightly coupled algorithms requiring frequent data exchange.
+This architecture scales to thousands or millions of nodes (clusters, supercomputers) and is well-suited for embarrassingly parallel workloads with high computation-to-communication ratios. The tradeoff is that network latency sits orders of magnitude below RAM in the memory hierarchy, making it a poor fit for tightly coupled algorithms that require frequent data exchange between nodes.
 
 <img src="https://upload.wikimedia.org/wikipedia/commons/1/13/Loosely_Coupled_Multiprocessor_System.svg" width="500">

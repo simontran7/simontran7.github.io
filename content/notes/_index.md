@@ -24,14 +24,12 @@ title: "Notes"
 
 ## Operating Systems
 
-TO WRITE
+- Operating Systems Structures
+- Process Management
+- Memory Management
+- File System Management
 
-<!-- ## Computer Networks
-
-- [Theory](https://gaia.cs.umass.edu/kurose_ross/online_lectures.htm)
-- [Network programming](https://beej.us/guide/bgnet/html/)
-
-## Performance Optimizations
+<!-- ## Performance Engineering
 
 - [Measuring Performance](./performance-optimizations/measuring-performance)
 - [Memory Optimizations](./performance-optimizations/memory-optimizations)
