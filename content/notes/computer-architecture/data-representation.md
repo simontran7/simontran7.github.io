@@ -155,7 +155,7 @@ Unicode defines three primary character encoding standards for converting code p
 > Code points can be encoded in another encoding scheme. However, when there is equivalent Unicode code point in the other encoding scheme, the character will appear as a �.
 
 > [!NOTE]
-> Since UTF-16 and UTF-32 stores multi-byte code points, characters whose Unicode code points fall in the ASCII range (`U+0000` to `U+007F`) gets zero-padded. This leads to Both big-endian and little-endian valid orderings.
+> Since UTF-16 and UTF-32 stores multi-byte code points, characters whose Unicode code points fall in the ASCII range (`U+0000` to `U+007F`) gets zero-padded. This leads to *both* big-endian and little-endian valid orderings.
 > For instance, "Hello", corresponding to `U+0048 U+0065 U+006C U+006C U+006F`, which can represented as `00 48 00 65 00 6C 00 6C 00 6F` (big-endian) or `48 00 65 00 6C 00 6C 00 6F 00` (little-endian).
 > To help decoders detect the byte order, Unicode introduced the **Byte Order Mark** `U+FEFF` which encodes as `FE FF` in big-endian and reads as `FF FE` in little-endian. Modern systems that do use UTF-16 typically just assume little-endian and skip the BOM entirely, which is its own subtle gotcha.
 
@@ -349,28 +349,12 @@ In Rust, integer overflow and underflow produces panics, while release builds pr
 
 ## Integer Byte Order
 
-**Byte order**, also known as **endianness** of a system defines how multi $N$-byte chunks ($N \gt 1$) are assign to memory addresses.
+**Byte order**, also known as **endianness** of a system defines how _multi $N$-byte_ chunks ($N \gt 1$) are assign to memory addresses.
 - **Big endian Byte Order**: The most significant byte in the $N$-byte chunk is stored at the lowest memory address.
 - **Little endian Byte Order**: The least significant byte in the $N$-byte chunk is stored at the lowest memory address.
 
-**Example**: For the string "Hello" in UTF-16 encoding, in big-endian format is `00 48 00 65 00 6C 00 6C 00 6F`
-- H: `00 48`
-- e: `00 65`
-- l: `00 6C`
-- l: `00 6C`
-- o:  `00 6F`
-
-while "Hello" in little-endian format is `48 00 00 65 00 6C 00 6C 00 6F 00` since within every 2-byte chunk, the least significant byte, the non-zero byte, will be at the lowest memory address.
-
-- H: `48 00`
-- e: `65 00`
-- l: `6C 00`
-- l: `6C 00`
-- o:  `6F 00`
-
+A raw blob has no recoverable endianness on its own. Figuring it out requires an anchor: the scalar's size paired with a known value it should decode to.
 
 > [!NOTE]
-> On x86-64 systems (and most systems today), the byte ordering is little endian.
+> On x86-64 systems (and most systems today), the byte ordering is _little endian_.
 
-> [!NOTE]
-> The computer's preference for the layout of *individual* bits is known as **bit endianness**.

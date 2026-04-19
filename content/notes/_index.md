@@ -29,8 +29,3 @@ title: "Notes"
 - Memory Management
 - File System Management
 
-<!-- ## Performance Engineering
-
-- [Measuring Performance](./performance-optimizations/measuring-performance)
-- [Memory Optimizations](./performance-optimizations/memory-optimizations)
-- [CPU Optimizations](./performance-optimizations/cpu-optimizations) -->
